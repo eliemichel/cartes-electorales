@@ -98,63 +98,97 @@ const $map = new Promise(resolve => {
 })
 .then(map => {
 
-	for (const source of dataSources) {
-		map.addSource(source.name, {
-			//type: 'geojson',
-			//data: null,
-			type: 'vector',
-			url: source.url,
-			filter: source.filter,
+	map.addSource("selected-area", {
+		type: 'geojson',
+		data: null,
+	});
+
+	map.addLayer({
+		id: "selected-area-line",
+		source: "selected-area",
+		type: "line",
+		paint: {
+			"line-color": "#ffffff",
+			"line-width": 3,
+		},
+	});
+
+	map.on('click', (event) => {
+		// If the user clicked on one of your markers, get its information.
+		const features = map.queryRenderedFeatures(event.point, {
+			layers: ['resultats'] // replace with your layer name
 		});
 
-		for (const layer of source.layers) {
-			const layerId = source.name + '--' + layer.name;
-			map.addLayer({
-				id: layerId,
-				type: layer.type,
-				source: source.name,
-				'source-layer': layer['source-layer'],
-				paint: {
-					"fill": {
-						"fill-color": layer.color,
-						"fill-outline-color": "#888888",
-						"fill-opacity": 0.5,
-					},
-					"line": {
-						"line-color": layer.color,
-						"line-width": layer.thickness,
-					},
-					"circle": {
-						"circle-radius": 3,
-						"circle-stroke-color": '#000000',
-						"circle-stroke-opacity": 0.5,
-						"circle-stroke-width": 1,
-						"circle-color": layer.color,
-						"circle-opacity": 1.0,
-					}
-				}[layer.type]
-			});
-
-			if (true) {
-				map.on('click', layerId, (e) => {
-					const props = e.features[0].properties;
-					console.log(props);
-				});
-			}
+		if (!features.length) {
+			return;
 		}
-	}
+
+		const feature = features[0];
+		console.log(feature.properties);
+		console.log(feature);
+
+		const center = [ 0, 0 ];
+		const contour = [];
+		function accumulate(data) {
+			for (const pt of data) {
+				if (pt.length == 2 && typeof pt[0] === 'number' && typeof pt[1] === 'number') {
+					contour.push(pt);
+					center[0] += pt[0];
+					center[1] += pt[1];
+				} else {
+					accumulate(pt);
+				}
+			}
+		};
+		accumulate(feature.geometry.coordinates);
+		center[0] /= contour.length;
+		center[1] /= contour.length;
+
+		const entries = [
+			{ class: "abstention", label: "Abstention" },
+			{ class: "extreme-gauche", label: "Extrême gauche" },
+			{ class: "gauche", label: "Gauche" },
+			{ class: "centre", label: "Centre" },
+			{ class: "droite", label: "Droite" },
+			{ class: "extreme-droite", label: "Extrême droite" },
+			{ class: "autre", label: "Autre" },
+			{ class: "blancs", label: "Blanc" },
+			{ class: "nuls", label: "Nul" },
+		];
+
+		const inscrits = feature.properties.inscrits;
+		const votants = feature.properties.votants;
+
+		let htmlContent = '<div class="popup"><h3>Info</h3><ul>';
+		for (const e of entries) {
+			const key = "bulletins_" + e.class.replace("-", "_");
+			const bulletins = e.class == "abstention" ? inscrits - votants : feature.properties[key];
+			const ratio_votants = (100 * bulletins / votants).toFixed(1);
+			const ratio_inscrits = (100 * bulletins / inscrits).toFixed(1);
+			htmlContent += `<li><span class="bullet ${e.class}"></span> <strong>${e.label} : </strong> ${bulletins} (${ratio_votants}% des votants, ${ratio_inscrits}% des inscrits)</li>`;
+		}
+		htmlContent += "</ul></div>";
+
+		// Code from the next step will go here.
+		const popup = new mapboxgl.Popup({ offset: [0, -15] })
+			.setLngLat(center)
+			.setHTML(htmlContent)
+			.addTo(map);
+
+		map.getSource("selected-area").setData({
+			type: "FeatureCollection",
+			features: [
+				{
+	                type: "Feature",
+	                geometry: {
+	                	type: "Polygon",
+	                	coordinates: [ contour ],
+	                },
+	                properties: {},
+	            }
+			]
+		});
+	});
 
 	return map;
 });
-
-/*
-for (const source of dataSources) {
-	if (!source.url.startsWith("http")) continue;
-
-	const $data = fetch(source.url).then(response => response.json());
-
-	join($map, $data, (map, data) => {
-		map.getSource(source.name).setData(data);
-	});
-}
-*/

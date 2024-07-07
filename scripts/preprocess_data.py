@@ -248,6 +248,7 @@ normalize_nuance = {
 
     # Jaune
     "REN": "centre",
+    "MDM": "centre",
     "ENS": "centre",
     "HOR": "centre",
     "UDI": "centre",

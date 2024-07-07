@@ -5,7 +5,10 @@
 		["get", "bulletins_centre"],
 		["get", "bulletins_droite"],
 		["get", "bulletins_extreme_droite"],
-		["get", "bulletins_autre"]
+		["get", "bulletins_autre"],
+		["get", "bulletins_blancs"],
+		["get", "bulletins_nuls"],
+		["-", ["get", "inscrits"], ["get", "votants"]]
 	],
 	["case",
 		["==", ["var", "M"], ["get", "bulletins_extreme_gauche"]], ["rgba", 197, 0, 0, 0.5],
@@ -13,7 +16,10 @@
 		["==", ["var", "M"], ["get", "bulletins_centre"]], ["rgba", 251, 175, 5, 0.5],
 		["==", ["var", "M"], ["get", "bulletins_droite"]], ["rgba", 6, 68, 223, 0.5],
 		["==", ["var", "M"], ["get", "bulletins_extreme_droite"]], ["rgba", 36, 6, 136, 0.5],
-		["==", ["var", "M"], ["get", "bulletins_autre"]], ["rgba", 255, 0, 0, 0.5],
+		["==", ["var", "M"], ["get", "bulletins_autre"]], ["rgba", 89, 34, 17, 0.5],
+		["==", ["var", "M"], ["get", "bulletins_blancs"]], ["rgba", 255, 255, 255, 0.5],
+		["==", ["var", "M"], ["get", "bulletins_nuls"]], ["rgba", 0, 0, 0, 0.5],
+		["==", ["var", "M"], ["-", ["get", "inscrits"], ["get", "votants"]]], ["rgba", 122, 122, 122, 0.5],
 		["rgba", 0, 0, 0, 0.5]
 	]
 ]

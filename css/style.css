@@ -99,6 +99,9 @@ body {
 	margin-right: 0.1em;
 }
 
+.bullet.abstention {
+	background-color: #7a7a7a;
+}
 .bullet.extreme-gauche {
 	background-color: #c50000;
 }
@@ -115,13 +118,31 @@ body {
 	background-color: #240688;
 }
 .bullet.autre {
-	background-color: #808080;
+	background-color: #592211;
+}
+.bullet.blancs {
+	background-color: #ffffff;
+	border: 1px solid #dddddd;
+}
+.bullet.nuls {
+	background-color: #000000;
 }
 
 #legend p {
 	font-style: italic;
 	font-size: 0.9em;
 	margin: 0;
+}
+
+.popup ul {
+	list-style: none;
+	padding: 0 0.3em;
+	margin: 0;
+}
+
+.popup h3 {
+	margin: 0;
+	margin-bottom: 0.1em;
 }
 
 @media (max-width: 640px) {
