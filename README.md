@@ -15,7 +15,7 @@ On collecte pour chaque bureau de vote des **grandeurs** et des **identités**. 
 
 Les identités permettent de regrouper les données par géographies voisines:
 
- - Nom/Code du bureau de vote
+ - Numéro du bureau de vote
  - Nom/Code de la commune
  - Nom/Code de la circonscription
  - Nom/Code du département

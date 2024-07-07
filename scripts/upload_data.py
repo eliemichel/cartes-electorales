@@ -21,8 +21,9 @@ DRY_RUN = True
 USERNAME = "eliemichel"
 TILESET_SOURCE_NAME = "legislative-2024-tour-1"
 TILESET_DATA_FILE = DATA_ROOT.joinpath("contours_avec_resultats.geojson")
-TILESET_LAYER_IDENT = "premier_candidat"
-TILESET_LAYER_NAME = "premier candidat"
+TILESET_LAYER_IDENT = "resultats"
+TILESET_LAYER_NAME = "Legislatives 2024 - Resultats - 1er tour"
+RECEIPE_FILENAME = "legislative-2024-tour-1-lod.json"
 
 #---------------------------------------------
 
@@ -49,7 +50,7 @@ def main():
         "tilesets",
         "create",
         f"{USERNAME}.{TILESET_LAYER_IDENT}",
-        "--recipe", str(DATA_ROOT.joinpath("receipes", "legislative-2024-tour-1.json")),
+        "--recipe", str(DATA_ROOT.joinpath("receipes", RECEIPE_FILENAME)),
         "--name", TILESET_LAYER_NAME,
     )
 
@@ -63,7 +64,7 @@ def main():
 #---------------------------------------------
 
 def runCmd(*cmd):
-    print(shlex.join(cmd))
+    print(shlex.join(cmd).replace("'", '"'))
     if not DRY_RUN:
         subprocess.run(cmd)
 

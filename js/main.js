@@ -19,6 +19,20 @@ const config = {
 const dataSources = [
 	{
 		name: 'bureaux-de-vote',
+		url: 'mapbox://eliemichel.resultats',
+		layers: [
+			{
+				name: "contours",
+				type: 'line',
+				color: "#000000",
+				thickness: 0.2,
+				'source-layer': "resultats",
+			}
+		]
+	}
+	/*
+	{
+		name: 'bureaux-de-vote',
 		url: 'data/contours_avec_resultats.geojson',
 		//filter: [ '==', [ 'get', 'nomDepartement' ], 'Yvelines' ],
 		//filter: [ '==', [ 'get', 'nomDepartement' ], 'Seine-et-Marne' ],
@@ -54,6 +68,7 @@ const dataSources = [
 			}
 		]
 	},
+	*/
 ];
 
 ///////////////////////////////////////////////////////////
@@ -84,9 +99,11 @@ const $map = new Promise(resolve => {
 
 	for (const source of dataSources) {
 		map.addSource(source.name, {
-			type: 'geojson',
-			data: null,
-			filter: source.filter
+			//type: 'geojson',
+			//data: null,
+			type: 'vector',
+			url: source.url,
+			filter: source.filter,
 		});
 
 		for (const layer of source.layers) {
@@ -95,6 +112,7 @@ const $map = new Promise(resolve => {
 				id: layerId,
 				type: layer.type,
 				source: source.name,
+				'source-layer': layer['source-layer'],
 				paint: {
 					"fill": {
 						"fill-color": layer.color,
@@ -128,10 +146,14 @@ const $map = new Promise(resolve => {
 	return map;
 });
 
+/*
 for (const source of dataSources) {
+	if (!source.url.startsWith("http")) continue;
+
 	const $data = fetch(source.url).then(response => response.json());
 
 	join($map, $data, (map, data) => {
 		map.getSource(source.name).setData(data);
 	});
 }
+*/

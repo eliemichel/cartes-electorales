@@ -16,7 +16,7 @@ def main():
     #return main_fix_bv_inconnus()
     # Pour aider au développement des étapes suivantes, on peut extraire un
     # sous-ensemble des bureaux de vote.
-    contours_bureau_de_vote = loadBureauxDeVote(use_subset=True)
+    contours_bureau_de_vote = loadBureauxDeVote(use_subset=False)
 
     # On traite les résultats pour en faire un json plus facile à indexer par
     # identifiant de bureau de vote plutôt qu'une longue liste.
@@ -29,10 +29,10 @@ def main():
         bv_inconnus,
     ) = consolidateResults(contours_bureau_de_vote, bvid_to_result, bvlabel_to_result)
 
-    f0 = contours_avec_resultats["features"][0]
-    print(f0)
+    #f0 = contours_avec_resultats["features"][0]["properties"]
+    #print(json.dumps(f0, indent=2))
 
-    #exportJsonData(contours_avec_resultats, "contours_avec_resultats.geojson")
+    exportJsonData(contours_avec_resultats, "contours_avec_resultats.geojson")
     #exportJsonData({ "bv_inconnus": bv_inconnus }, "bv_inconnus.json")
 
 #---------------------------------------------
@@ -167,6 +167,11 @@ def buildBvidToResults(resultats_bureau_de_vote):
     libelle_commune_idx = name_to_index['Libellé commune']
     libelle_departement_idx = name_to_index['Libellé département']
 
+    inscrits_idx = name_to_index["Inscrits"]
+    votants_idx = name_to_index["Votants"]
+    blancs_idx = name_to_index["Blancs"]
+    nuls_idx = name_to_index["Nuls"]
+
     nuance_idx_offset = name_to_index['Nuance candidat 1']
     nom_idx_offset = name_to_index['Nom candidat 1']
     prenom_idx_offset = name_to_index['Prénom candidat 1']
@@ -178,7 +183,7 @@ def buildBvidToResults(resultats_bureau_de_vote):
     bvlabel_to_result = {}
     for row_idx, row in enumerate(resultats_bureau_de_vote["data"]):
         # transform into json
-        results = []
+        scores = []
         for i in range(19):
             nuance = row[nuance_idx_offset + i * idx_stride]
             nom = row[nom_idx_offset + i * idx_stride]
@@ -187,14 +192,22 @@ def buildBvidToResults(resultats_bureau_de_vote):
             pourcentage = row[pourcentage_idx_offset + i * idx_stride]
             if voix == '':
                 break
-            results.append({
+            scores.append({
                 "nuance": nuance,
                 "nom": nom,
                 "prenom": prenom,
                 "voix": int(voix),
                 "pourcentage": pourcentage,
             })
-        results.sort(key = lambda x: -x["voix"])
+        scores.sort(key = lambda x: -x["voix"])
+
+        results = {
+            "inscrits": row[inscrits_idx],
+            "votants": row[votants_idx],
+            "blancs": row[blancs_idx],
+            "nuls": row[nuls_idx],
+            "scores": scores,
+        }
 
         # Store in LUT
         code_commune = row[code_commune_idx]
@@ -213,29 +226,42 @@ def buildBvidToResults(resultats_bureau_de_vote):
 #---------------------------------------------
 
 nuance_to_color = {
-    "EXD": "#240688",
-    "UXD": "#240688",
-    "RN": "#240688",
-    "DSV": "#240688",
+    "extreme_droite": "#240688",
+    "droite": "#0644df",
+    "centre": "#fbaf05",
+    "gauche": "#f62e66",
+    "extreme_gauche": "#c50000",
+    "autre": "#808080",
+}
 
-    "LR": "#0644df",
-    "DVD": "#0644df",
+normalize_nuance = {
+    "EXD": "extreme_droite",
+    "REC": "extreme_droite",
+    "UXD": "extreme_droite",
+    "RN": "extreme_droite",
+    "DSV": "extreme_droite",
 
-    "ENS": "#fbaf05",
-    "HOR": "#fbaf05",
-    "UDI": "#fbaf05",
-    "DVC": "#fbaf05",
+    "LR": "droite",
+    "DVD": "droite",
 
-    "UG": "#f62e66",
-    "DVG": "#f62e66",
-    "REG": "#f62e66",
-    "SOC": "#f62e66",
-    "FI": "#f62e66",
-    "ECO": "#f62e66",
+    "ENS": "centre",
+    "HOR": "centre",
+    "UDI": "centre",
+    "DVC": "centre",
 
-    "EXG": "#c50000",
+    "UG": "gauche",
+    "DVG": "gauche",
+    "REG": "gauche",
+    "SOC": "gauche",
+    "FI": "gauche",
+    "ECO": "gauche",
+    "COM": "gauche",
+    "VEC": "gauche",
+    "RDG": "gauche",
 
-    "DIV": "#808080",
+    "EXG": "extreme_gauche",
+
+    "DIV": "autre",
 }
 
 def consolidateResults(contours_bureau_de_vote, bvid_to_result, bvlabel_to_result):
@@ -258,13 +284,35 @@ def consolidateResults(contours_bureau_de_vote, bvid_to_result, bvlabel_to_resul
         if result is None:
             return props
         props = props.copy()
-        première_nuance = result[0]["nuance"]
-        if première_nuance not in nuance_to_color:
-            print(result[0])
+        première_nuance = result["scores"][0]["nuance"]
+        if première_nuance not in normalize_nuance:
+            print(result["scores"][0])
             print(f"Nuance '{première_nuance}' Not found")
         else:
-            props["color"] = nuance_to_color[première_nuance]
-        props["result"] = result
+            props["color"] = nuance_to_color[normalize_nuance[première_nuance]]
+        #props["result"] = result
+
+        props["scores"] = result["scores"]
+        props["inscrits"] = int(result["inscrits"])
+        props["votants"] = int(result["votants"])
+        props["bulletins_blancs"] = int(result["blancs"])
+        props["bulletins_nuls"] = int(result["nuls"])
+
+        props["bulletins_extreme_gauche"] = 0
+        props["bulletins_gauche"] = 0
+        props["bulletins_centre"] = 0
+        props["bulletins_droite"] = 0
+        props["bulletins_extreme_droite"] = 0
+        props["bulletins_autre"] = 0
+        for entry in result["scores"]:
+            nuance = entry["nuance"]
+            if nuance not in normalize_nuance:
+                print(entry)
+                print(f"Nuance '{nuance}' Not found")
+                continue
+            normal_nuance = normalize_nuance[nuance]
+            props["bulletins_" + normal_nuance] += int(entry["voix"])
+
         return props
 
     return (
