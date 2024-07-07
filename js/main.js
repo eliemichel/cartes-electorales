@@ -17,6 +17,7 @@ const config = {
 // Data Sources
 
 const dataSources = [
+	/*
 	{
 		name: 'bureaux-de-vote',
 		url: 'mapbox://eliemichel.resultats',
@@ -30,7 +31,6 @@ const dataSources = [
 			}
 		]
 	}
-	/*
 	{
 		name: 'bureaux-de-vote',
 		url: 'data/contours_avec_resultats.geojson',
@@ -83,13 +83,14 @@ const $map = new Promise(resolve => {
 
 		const map = new mapboxgl.Map({
 			container: 'map',
-			style: 'mapbox://styles/eliemichel/clnzwjzoj007i01qxg4vcf4m0',
+			style: 'mapbox://styles/eliemichel/clybfz08a00ja01pf7w8ceaft',
+			/*
 			center: [2.3522, 46.8566],
 			maxBounds: [
 				[-10.75, 40.8566],
 				[14.0, 52.8566]
 			],
-			zoom: 5.5,
+			*/
 		});
 
 		map.on('load', () => { resolve(map); });

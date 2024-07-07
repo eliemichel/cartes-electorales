@@ -235,33 +235,40 @@ nuance_to_color = {
 }
 
 normalize_nuance = {
+    # Violet
     "EXD": "extreme_droite",
     "REC": "extreme_droite",
     "UXD": "extreme_droite",
     "RN": "extreme_droite",
     "DSV": "extreme_droite",
 
+    # Bleu
     "LR": "droite",
     "DVD": "droite",
 
+    # Jaune
+    "REN": "centre",
     "ENS": "centre",
     "HOR": "centre",
     "UDI": "centre",
     "DVC": "centre",
 
+    # Rose
     "UG": "gauche",
     "DVG": "gauche",
-    "REG": "gauche",
     "SOC": "gauche",
     "FI": "gauche",
-    "ECO": "gauche",
     "COM": "gauche",
     "VEC": "gauche",
     "RDG": "gauche",
 
+    # Rouge
     "EXG": "extreme_gauche",
 
+    # Autre
     "DIV": "autre",
+    "REG": "gauche",
+    "ECO": "gauche",
 }
 
 def consolidateResults(contours_bureau_de_vote, bvid_to_result, bvlabel_to_result):
