@@ -29,6 +29,9 @@ def main():
         bv_inconnus,
     ) = consolidateResults(contours_bureau_de_vote, bvid_to_result, bvlabel_to_result)
 
+    f0 = contours_avec_resultats["features"][0]
+    print(f0)
+
     #exportJsonData(contours_avec_resultats, "contours_avec_resultats.geojson")
     #exportJsonData({ "bv_inconnus": bv_inconnus }, "bv_inconnus.json")
 
