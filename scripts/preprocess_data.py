@@ -13,27 +13,43 @@ from urllib.request import urlretrieve
 #---------------------------------------------
 
 def main():
+    center_only = True
     #return main_fix_bv_inconnus()
+
     # Pour aider au développement des étapes suivantes, on peut extraire un
     # sous-ensemble des bureaux de vote.
     contours_bureau_de_vote = loadBureauxDeVote(use_subset=False)
+
+    if center_only:
+        centres_bureaux_de_vote = loadCentresDesBureaux(contours_bureau_de_vote)
 
     # On traite les résultats pour en faire un json plus facile à indexer par
     # identifiant de bureau de vote plutôt qu'une longue liste.
     bvid_to_result, bvlabel_to_result = loadResultats()
 
-    # Crée un nouveau GeoJSON qui contient les résultats pour chaque bureau.
-    # Exporte aussi la liste des bureaux dont l'identifiant n'a pas été trouvé.
-    (
-        contours_avec_resultats,
-        bv_inconnus,
-    ) = consolidateResults(contours_bureau_de_vote, bvid_to_result, bvlabel_to_result)
+    if center_only:
+        # Crée un nouveau GeoJSON qui contient les résultats pour chaque bureau.
+        # Exporte aussi la liste des bureaux dont l'identifiant n'a pas été trouvé.
+        (
+            centres_avec_resultats,
+            bv_inconnus,
+        ) = consolidateResults(centres_bureaux_de_vote, bvid_to_result, bvlabel_to_result)
 
-    #f0 = contours_avec_resultats["features"][0]["properties"]
-    #print(json.dumps(f0, indent=2))
+        exportJsonData(centres_avec_resultats, "centres_avec_resultats.geojson")
 
-    exportJsonData(contours_avec_resultats, "contours_avec_resultats.geojson")
-    #exportJsonData({ "bv_inconnus": bv_inconnus }, "bv_inconnus.json")
+    else:
+        # Crée un nouveau GeoJSON qui contient les résultats pour chaque bureau.
+        # Exporte aussi la liste des bureaux dont l'identifiant n'a pas été trouvé.
+        (
+            contours_avec_resultats,
+            bv_inconnus,
+        ) = consolidateResults(contours_bureau_de_vote, bvid_to_result, bvlabel_to_result)
+
+        #f0 = contours_avec_resultats["features"][0]["properties"]
+        #print(json.dumps(f0, indent=2))
+
+        exportJsonData(contours_avec_resultats, "contours_avec_resultats.geojson")
+        #exportJsonData({ "bv_inconnus": bv_inconnus }, "bv_inconnus.json")
 
 #---------------------------------------------
 
@@ -155,6 +171,59 @@ def extractCircoSubset(geojson, max_item_count = 1000):
     return {
         "type": geojson["type"],
         "features": geojson["features"][:max_item_count],
+    }
+
+#---------------------------------------------
+
+def loadCentresDesBureaux(contours_bureau_de_vote):
+    filename = "centres_bureaux_de_vote.geojson"
+    if not DATA_ROOT.joinpath(filename).exists():
+        centres_bureaux_de_vote = extractCentresDesBureaux(contours_bureau_de_vote)
+        exportJsonData(centres_bureaux_de_vote, filename)
+    else:
+        centres_bureaux_de_vote = loadJsonData("../" + filename)
+    return centres_bureaux_de_vote
+
+#---------------------------------------------
+
+def extractCentresDesBureaux(geojson):
+    def computeCenter(geometry):
+        def accumulate(data, state):
+            for pt in data:
+                if len(pt) == 2 and type(pt[0]) == float and type(pt[1]) == float:
+                    state["center"][0] += pt[0]
+                    state["center"][1] += pt[1]
+                    state["sample_count"] += 1
+                else:
+                    accumulate(pt, state)
+
+        state = {
+            "center": [ 0, 0 ],
+            "sample_count": 0,
+        }
+
+        accumulate(geometry['coordinates'], state)
+
+        state["center"][0] /= state["sample_count"]
+        state["center"][1] /= state["sample_count"]
+
+        return state["center"]
+
+    print(f"Traitement de {len(geojson['features'])} bureaux de vote...")
+
+    return {
+        "type": geojson["type"],
+        "features": [
+            {
+                "type": entry["type"],
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": computeCenter(entry["geometry"]),
+                },
+                "properties": entry["properties"],
+            }
+            for entry in geojson["features"]
+        ],
     }
 
 #---------------------------------------------

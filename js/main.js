@@ -16,6 +16,34 @@ const config = {
 ///////////////////////////////////////////////////////////
 // Data Sources
 
+const COLOR_STYLE = [
+	"let",
+	"M", ["max",
+		["get", "bulletins_extreme_gauche"],
+		["get", "bulletins_gauche"],
+		["get", "bulletins_centre"],
+		["get", "bulletins_droite"],
+		["get", "bulletins_extreme_droite"],
+		["get", "bulletins_autre"],
+		["get", "bulletins_blancs"],
+		["get", "bulletins_nuls"],
+		["-", ["get", "inscrits"], ["get", "votants"]]
+	],
+	["case",
+		["!=", ["var", "M"], ["var", "M"]], ["rgba", 0, 255, 0, 1.0],
+		["==", ["var", "M"], ["get", "bulletins_autre"]], ["rgba", 89, 34, 17, 1.0],
+		["==", ["var", "M"], ["get", "bulletins_extreme_gauche"]], ["rgba", 197, 0, 0, 1.0],
+		["==", ["var", "M"], ["get", "bulletins_gauche"]], ["rgba", 246, 46, 102, 1.0],
+		["==", ["var", "M"], ["get", "bulletins_centre"]], ["rgba", 251, 175, 5, 1.0],
+		["==", ["var", "M"], ["get", "bulletins_droite"]], ["rgba", 6, 68, 223, 1.0],
+		["==", ["var", "M"], ["get", "bulletins_extreme_droite"]], ["rgba", 36, 6, 136, 1.0],
+		["==", ["var", "M"], ["get", "bulletins_blancs"]], ["rgba", 255, 255, 255, 1.0],
+		["==", ["var", "M"], ["get", "bulletins_nuls"]], ["rgba", 0, 0, 0, 1.0],
+		["==", ["var", "M"], ["-", ["get", "inscrits"], ["get", "votants"]]], ["rgba", 122, 122, 122, 1.0],
+		["rgba", 0, 0, 0, 1.0]
+	]
+];
+
 const dataSources = [
 	/*
 	{
@@ -83,7 +111,8 @@ const $map = new Promise(resolve => {
 
 		const map = new mapboxgl.Map({
 			container: 'map',
-			style: 'mapbox://styles/eliemichel/clybfz08a00ja01pf7w8ceaft',
+			//style: 'mapbox://styles/eliemichel/clybfz08a00ja01pf7w8ceaft',
+			style: 'mapbox://styles/eliemichel/clnzwjzoj007i01qxg4vcf4m0',
 			/*
 			center: [2.3522, 46.8566],
 			maxBounds: [
@@ -97,6 +126,35 @@ const $map = new Promise(resolve => {
 	}
 })
 .then(map => {
+
+	map.addSource("test", {
+		type: 'geojson',
+		data: null,
+		//filter: [ "==", ["get", "nomDepartement"], "Alpes-Maritimes" ]
+	});
+
+	map.addLayer({
+		id: "test-line",
+		source: "test",
+		type: "circle",
+		paint: {
+			"circle-radius": ["/", ["get", "inscrits"], 300],
+			"circle-stroke-color": '#000000',
+			"circle-stroke-opacity": 0.5,
+			"circle-stroke-width": 1,
+			"circle-color": COLOR_STYLE,
+			"circle-opacity": 1.0,
+		},
+	});
+
+	fetch("data/centres_avec_resultats.geojson")
+	.then(response => response.json())
+	.then(data => {
+		console.log(data)
+		map.getSource("test").setData(data);
+	});
+
+	// --------------------------------------
 
 	map.addSource("selected-area", {
 		type: 'geojson',
