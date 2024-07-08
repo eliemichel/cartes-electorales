@@ -1,5 +1,6 @@
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
-const DOMContentLoaded = new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+const $DOMContentLoaded = new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
 
 ///////////////////////////////////////////////////////////
 // Immutable configuration globals
@@ -134,7 +135,7 @@ const $map = new Promise(resolve => {
 	});
 
 	map.addLayer({
-		id: "test-line",
+		id: "test-circles",
 		source: "test",
 		type: "circle",
 		paint: {
@@ -145,13 +146,6 @@ const $map = new Promise(resolve => {
 			"circle-color": COLOR_STYLE,
 			"circle-opacity": 1.0,
 		},
-	});
-
-	fetch("data/centres_avec_resultats.geojson")
-	.then(response => response.json())
-	.then(data => {
-		console.log(data)
-		map.getSource("test").setData(data);
 	});
 
 	// --------------------------------------
@@ -249,4 +243,153 @@ const $map = new Promise(resolve => {
 	});
 
 	return map;
+});
+
+///////////////////////////////////////////////////////////
+// Data
+
+const $pointData =
+	fetch("data/centres_avec_resultats.geojson")
+	.then(response => response.json());
+
+join($map, $pointData, (map, data) => {
+	map.getSource("test").setData(data);
+});
+
+const $tree = $pointData.then(pointData => {
+	return d3.quadtree()
+		.x(el => el.geometry.coordinates[0])
+		.y(el => el.geometry.coordinates[1])
+		.addAll(pointData.features);
+});
+
+///////////////////////////////////////////////////////////
+// D3Map
+
+function getVisiblePoints(pointData, tree, bbox) {
+	const visiblePoints = [];
+	for (const el of pointData.features) {
+		if (bbox.contains(el.geometry.coordinates)) {
+			visiblePoints.push(el);
+		}
+	}
+	return visiblePoints;
+}
+
+function pixelFromCoordinates(map, coordinates) {
+	//return map.project(coordinates);
+	const bbox = map.getBounds();
+	const minLng = bbox.getWest();
+	const maxLng = bbox.getEast();
+	const minLat = bbox.getSouth();
+	const maxLat = bbox.getNorth();
+	const lngFactor = (coordinates[0] - minLng) / (maxLng - minLng);
+	const latFactor = (coordinates[1] - minLat) / (maxLat - minLat);
+
+	const bounds = map.getContainer().getBoundingClientRect();
+	const width = bounds.width;
+	const height = bounds.height;
+	return [ lngFactor * width, (1 - latFactor) * height ];
+}
+
+function buildD3Plot(map, visiblePoints, options) {
+	const radii = Array.from({length: 1000}, d3.randomUniform(4, 18));
+
+	const bounds = document.getElementById("overlay").getBoundingClientRect();
+	const width = bounds.width;
+	const height = bounds.height;
+	const context = document.createElement("canvas").getContext('2d');
+	context.canvas.width = width;
+	context.canvas.height = height;
+
+	console.log("length", visiblePoints.length);
+	const nodes = visiblePoints.slice(0, options.disc.maxCount).map(el => {
+		const pixel = pixelFromCoordinates(map, el.geometry.coordinates);
+		return {
+			targetx: pixel[0],
+			targety: pixel[1],
+			x: pixel[0],
+			y: pixel[1],
+			r: el.properties.inscrits / 100 * options.disc.scale,
+			color: el.properties.color,
+		};
+	});
+
+	console.log("nodes", nodes);
+
+	const simulation = d3.forceSimulation(nodes)
+		.velocityDecay(0.2)
+		.force("x", d3.forceX(d => d.targetx).strength(0.002))
+		.force("y", d3.forceY(d => d.targety).strength(0.002))
+		.force("collide", d3.forceCollide().radius(d => d.r + 0.5).iterations(2))
+		.on("tick", ticked);
+
+	function ticked() {
+		context.clearRect(0, 0, width, height);
+		for (const d of nodes) {
+			context.beginPath();
+			context.moveTo(d.x + d.r, d.y);
+			context.arc(d.x, d.y, d.r, 0, 2 * Math.PI);
+			context.fillStyle = d.color;
+			context.fill();
+			//context.strokeStyle = "#333";
+			//context.stroke();
+		}
+	}
+
+	return context.canvas;
+}
+
+function updateD3Map(container, map, pointData, tree, options) {
+
+	const visiblePoints = getVisiblePoints(pointData, tree, map.getBounds());
+
+	container.replaceChildren(buildD3Plot(map, visiblePoints, options));
+
+	/*
+	const nodes = [{}, {}];
+	const simulation = d3.forceSimulation(nodes)
+		.force("x", d3.forceX())
+		.force("collide", d3.forceCollide(5))
+		.on("tick", () => console.log(nodes[0].x));
+	*/
+
+}
+
+///////////////////////////////////////////////////////////
+// Dom
+
+const $dom = $DOMContentLoaded.then(() => {
+	return {
+		'btn-generate': document.getElementById('btn-generate'),
+		'd3-container': document.getElementById('d3-container'),
+		'show-map': document.getElementById('show-map'),
+		'disc-scale': document.getElementById('disc-scale'),
+		'disc-max-count': document.getElementById('disc-max-count'),
+	}
+});
+
+$dom.then(dom => {
+	dom['btn-generate'].disabled = true;
+});
+
+join($dom, $map, (dom, map) => {
+	dom['show-map'].checked = true;
+	dom['show-map'].addEventListener('change', e => {
+		const show = dom['show-map'].checked;
+		map.getContainer().style.display = show ? 'block' : 'none';
+	})
+});
+
+join($dom, $map, $pointData, $tree, (dom, map, pointData, tree) => {
+	const container = dom['d3-container'];
+	dom['btn-generate'].disabled = false;
+	dom['btn-generate'].addEventListener('click', e => {
+		updateD3Map(container, map, pointData, tree, {
+			disc: {
+				scale: dom['disc-scale'].value,
+				maxCount: dom['disc-max-count'].value,
+			}
+		})
+	});
 });

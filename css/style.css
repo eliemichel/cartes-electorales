@@ -17,6 +17,7 @@ body {
 	left: 0;
 	top: 0;
 	pointer-events: none;
+	overflow: hidden;
 }
 
 #title {
