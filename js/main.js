@@ -11,7 +11,19 @@ const config = {
 
 	// MapBox access token (only allowed on specific hosts so you can use it
 	// localhost but not steal it for your website)
-	MAPBOX_ACCESS_TOKEN: 'pk.eyJ1IjoiZWxpZW1pY2hlbCIsImEiOiJjbG56d2wydHgxN3ppMmtxb3ByMjhkdW82In0.iDZGP4LZtOPIYgr1XdqY5w'
+	MAPBOX_ACCESS_TOKEN: 'pk.eyJ1IjoiZWxpZW1pY2hlbCIsImEiOiJjbG56d2wydHgxN3ppMmtxb3ByMjhkdW82In0.iDZGP4LZtOPIYgr1XdqY5w',
+
+	nuanceToColor: {
+		abstention: "#bbbbbb",
+		extreme_gauche: "#c50000",
+		gauche: "#f62e66",
+		centre: "#fbaf05",
+		droite: "#0644df",
+		extreme_droite: "#240688",
+		autre: "#592211",
+		blancs: "#ffffff",
+		nuls: "#000000",
+	},
 };
 
 ///////////////////////////////////////////////////////////
@@ -266,6 +278,10 @@ const $tree = $pointData.then(pointData => {
 ///////////////////////////////////////////////////////////
 // D3Map
 
+const state = {
+	simulation: null,
+};
+
 function getVisiblePoints(pointData, tree, bbox) {
 	const visiblePoints = [];
 	for (const el of pointData.features) {
@@ -303,24 +319,32 @@ function buildD3Plot(map, visiblePoints, options) {
 	context.canvas.height = height;
 
 	console.log("length", visiblePoints.length);
-	const nodes = visiblePoints.slice(0, options.disc.maxCount).map(el => {
+	const nodes = [];
+	for (const el of visiblePoints.slice(0, options.disc.maxCount)) {
 		const pixel = pixelFromCoordinates(map, el.geometry.coordinates);
-		return {
-			targetx: pixel[0],
-			targety: pixel[1],
-			x: pixel[0],
-			y: pixel[1],
-			r: el.properties.inscrits / 100 * options.disc.scale,
-			color: el.properties.color,
-		};
-	});
+		for (const [nuance, color] of Object.entries(config.nuanceToColor)) {
+			let bulletins = el.properties["bulletins_" + nuance];
+			if (nuance == "blancs") bulletins = el.properties["blancs"];
+			if (nuance == "nuls") bulletins = el.properties["nuls"];
+			if (nuance == "abstention") bulletins = el.properties["inscrits"] - el.properties["votants"];
+			if (bulletins === undefined) continue;
+			nodes.push({
+				targetx: pixel[0],
+				targety: pixel[1],
+				x: pixel[0] + (Math.random() - 0.5) * 0.00001,
+				y: pixel[1] + (Math.random() - 0.5) * 0.00001,
+				r: Math.sqrt(bulletins / 100) * options.disc.scale,
+				color: color,
+			});
+		}
+	}
 
 	console.log("nodes", nodes);
 
-	const simulation = d3.forceSimulation(nodes)
+	state.simulation = d3.forceSimulation(nodes)
 		.velocityDecay(0.2)
-		.force("x", d3.forceX(d => d.targetx).strength(0.002))
-		.force("y", d3.forceY(d => d.targety).strength(0.002))
+		.force("x", d3.forceX(d => d.targetx).strength(0.02))
+		.force("y", d3.forceY(d => d.targety).strength(0.02))
 		.force("collide", d3.forceCollide().radius(d => d.r + 0.5).iterations(2))
 		.on("tick", ticked);
 
@@ -341,19 +365,46 @@ function buildD3Plot(map, visiblePoints, options) {
 }
 
 function updateD3Map(container, map, pointData, tree, options) {
-
+	clearD3Map(container);
 	const visiblePoints = getVisiblePoints(pointData, tree, map.getBounds());
-
 	container.replaceChildren(buildD3Plot(map, visiblePoints, options));
+}
 
-	/*
-	const nodes = [{}, {}];
-	const simulation = d3.forceSimulation(nodes)
-		.force("x", d3.forceX())
-		.force("collide", d3.forceCollide(5))
-		.on("tick", () => console.log(nodes[0].x));
-	*/
+function clearD3Map(container) {
+	if (state.simulation) {
+		state.simulation.stop();
+	}
+	container.replaceChildren();
+}
 
+function exportD3Map(container) {
+	const bounds = container.getBoundingClientRect();
+	const width = bounds.width;
+	const height = bounds.height;
+
+	const svg = d3.create("svg")
+		.attr("width", width)
+		.attr("height", height)
+		.attr("viewBox", [0, 0, width, height])
+		.attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+
+	svg.selectAll("circle")
+		.data(state.simulation.nodes())
+		.enter().append("circle")
+		.style("fill", d => d.color)
+		.attr("r", d => d.r)
+		.attr("cx", d => d.x)
+		.attr("cy", d => d.y);
+
+	//const encoded = btoa(svg.html());
+	//'data:application/octet-stream;base64,'
+	const blob = new Blob([svg.node().outerHTML], {type:"image/svg+xml;charset=utf-8"});
+	const link = document.createElement("a");
+	link.href = URL.createObjectURL(blob);
+	link.download = "resultats.svg";
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
 }
 
 ///////////////////////////////////////////////////////////
@@ -362,8 +413,11 @@ function updateD3Map(container, map, pointData, tree, options) {
 const $dom = $DOMContentLoaded.then(() => {
 	return {
 		'btn-generate': document.getElementById('btn-generate'),
+		'btn-clear': document.getElementById('btn-clear'),
+		'btn-export': document.getElementById('btn-export'),
 		'd3-container': document.getElementById('d3-container'),
 		'show-map': document.getElementById('show-map'),
+		'show-points': document.getElementById('show-points'),
 		'disc-scale': document.getElementById('disc-scale'),
 		'disc-max-count': document.getElementById('disc-max-count'),
 	}
@@ -371,6 +425,8 @@ const $dom = $DOMContentLoaded.then(() => {
 
 $dom.then(dom => {
 	dom['btn-generate'].disabled = true;
+	dom['btn-clear'].disabled = true;
+	dom['btn-export'].disabled = true;
 });
 
 join($dom, $map, (dom, map) => {
@@ -378,7 +434,13 @@ join($dom, $map, (dom, map) => {
 	dom['show-map'].addEventListener('change', e => {
 		const show = dom['show-map'].checked;
 		map.getContainer().style.display = show ? 'block' : 'none';
-	})
+	});
+
+	dom['show-points'].checked = true;
+	dom['show-points'].addEventListener('change', e => {
+		const show = dom['show-points'].checked;
+		map.setLayoutProperty('test-circles', 'visibility', show ? 'visible' : 'none');
+	});
 });
 
 join($dom, $map, $pointData, $tree, (dom, map, pointData, tree) => {
@@ -390,6 +452,17 @@ join($dom, $map, $pointData, $tree, (dom, map, pointData, tree) => {
 				scale: dom['disc-scale'].value,
 				maxCount: dom['disc-max-count'].value,
 			}
-		})
+		});
+		dom['btn-clear'].disabled = false;
+		dom['btn-export'].disabled = false;
+	});
+
+	dom['btn-clear'].addEventListener('click', e => {
+		clearD3Map(container);
+		dom['btn-export'].disabled = false;
+	});
+
+	dom['btn-export'].addEventListener('click', e => {
+		exportD3Map(container);
 	});
 });
